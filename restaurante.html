@@ -4,144 +4,262 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Restaurante - MyDi</title>
+    <title>Cliente - MyDi</title>
     <style>
+        /* Exemplo básico de estilo */
+        
         body {
             font-family: Arial, sans-serif;
             margin: 20px;
-            background: #fff8f0;
+            background: #f9f9f9;
         }
         
         h1 {
             color: #f97316;
         }
         
-        .order {
-            border: 1px solid #f97316;
-            border-radius: 8px;
-            padding: 10px;
-            margin-bottom: 15px;
-            background: white;
-        }
-        
         button {
             cursor: pointer;
-            padding: 6px 10px;
+            padding: 8px 12px;
             background: #f97316;
             color: white;
             border: none;
             border-radius: 4px;
         }
         
-        .status-pending {
-            color: orange;
-            font-weight: bold;
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
         }
         
-        .status-inprogress {
-            color: blue;
-            font-weight: bold;
+        .menu-item {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+            background: white;
         }
         
-        .status-completed {
-            color: green;
-            font-weight: bold;
+        #cart {
+            margin-top: 30px;
+        }
+        
+        #checkoutModal {
+            display: none;
+            position: fixed;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            max-width: 400px;
+            box-shadow: 0 0 10px #999;
+        }
+        
+        #checkoutModal.show {
+            display: block;
+        }
+        
+        input,
+        select {
+            padding: 6px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
         }
     </style>
 </head>
 
 <body>
 
-    <h1>MyDi - Painel do Restaurante</h1>
+    <h1>MyDi - Menu do Cliente</h1>
 
-    <div>
-        <label>Filtrar pedidos: </label>
-        <select id="filterStatus">
-    <option value="all">Todos</option>
-    <option value="pending">Pendentes</option>
-    <option value="inprogress">Em preparo</option>
-    <option value="completed">Concluídos</option>
-  </select>
+    <div id="menuContainer"></div>
+
+    <div id="cart">
+        <h2>Carrinho</h2>
+        <div id="cartItems"></div>
+        <div><strong>Total:</strong> R$ <span id="cartTotal">0.00</span></div>
+        <button id="btnCheckout" disabled>Finalizar Pedido</button>
     </div>
 
-    <div id="ordersContainer" style="margin-top: 20px;"></div>
+    <!-- Modal Checkout -->
+    <div id="checkoutModal">
+        <h2>Finalizar Pedido</h2>
+        <form id="checkoutForm">
+            <label>Nome:</label>
+            <input type="text" id="customerName" required />
+            <label>Telefone:</label>
+            <input type="tel" id="customerPhone" required />
+            <label>Endereço:</label>
+            <input type="text" id="customerAddress" required />
+            <label>Forma de pagamento:</label>
+            <select id="paymentMethod">
+      <option value="pix">PIX</option>
+      <option value="money">Dinheiro</option>
+      <option value="card">Cartão</option>
+    </select>
+            <label>Troco para (se dinheiro):</label>
+            <input type="number" id="moneyChange" min="0" step="0.01" disabled />
+            <button type="submit">Enviar Pedido</button>
+            <button type="button" id="btnCloseCheckout">Cancelar</button>
+        </form>
+    </div>
 
     <script>
-        // Carrega pedidos do LocalStorage
-        function loadOrders() {
-            return JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
+        // Dados estáticos do menu (exemplo)
+        const menu = [{
+            id: 1,
+            name: 'Pizza Margherita',
+            price: 25.50
+        }, {
+            id: 2,
+            name: 'Hambúrguer',
+            price: 18.00
+        }, {
+            id: 3,
+            name: 'Refrigerante',
+            price: 5.00
+        }, ];
+
+        let cart = [];
+
+        // Renderiza o menu
+        function renderMenu() {
+            const container = document.getElementById('menuContainer');
+            container.innerHTML = '';
+            menu.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'menu-item';
+                div.innerHTML = `
+        <h3>${item.name}</h3>
+        <p>R$ ${item.price.toFixed(2)}</p>
+        <button onclick="addToCart(${item.id})">Adicionar</button>
+      `;
+                container.appendChild(div);
+            });
         }
 
-        // Salva pedidos no LocalStorage
-        function saveOrders(orders) {
-            localStorage.setItem('restaurantOrders', JSON.stringify(orders));
-        }
-
-        // Renderiza pedidos com filtro
-        function renderOrders(filter = 'all') {
-            const ordersContainer = document.getElementById('ordersContainer');
-            ordersContainer.innerHTML = '';
-
-            let orders = loadOrders();
-
-            if (filter !== 'all') {
-                orders = orders.filter(o => o.status === filter);
+        // Adiciona item ao carrinho
+        function addToCart(id) {
+            const item = menu.find(i => i.id === id);
+            const cartItem = cart.find(i => i.id === id);
+            if (cartItem) {
+                cartItem.quantity++;
+            } else {
+                cart.push({...item,
+                    quantity: 1
+                });
             }
+            updateCart();
+        }
 
-            if (orders.length === 0) {
-                ordersContainer.innerHTML = '<p>Nenhum pedido encontrado.</p>';
+        // Atualiza a exibição do carrinho
+        function updateCart() {
+            const cartItems = document.getElementById('cartItems');
+            cartItems.innerHTML = '';
+            if (cart.length === 0) {
+                cartItems.innerHTML = '<p>Carrinho vazio</p>';
+                document.getElementById('btnCheckout').disabled = true;
+                document.getElementById('cartTotal').textContent = '0.00';
+                return;
+            }
+            cart.forEach(item => {
+                const div = document.createElement('div');
+                div.innerHTML = `${item.name} x ${item.quantity} = R$ ${(item.price * item.quantity).toFixed(2)} <button onclick="removeFromCart(${item.id})">Remover</button>`;
+                cartItems.appendChild(div);
+            });
+            document.getElementById('btnCheckout').disabled = false;
+            document.getElementById('cartTotal').textContent = calculateTotal().toFixed(2);
+        }
+
+        // Remove item do carrinho
+        function removeFromCart(id) {
+            const index = cart.findIndex(i => i.id === id);
+            if (index > -1) {
+                cart.splice(index, 1);
+            }
+            updateCart();
+        }
+
+        // Calcula total do carrinho
+        function calculateTotal() {
+            return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+        }
+
+        // Abre modal checkout
+        document.getElementById('btnCheckout').addEventListener('click', () => {
+            document.getElementById('checkoutModal').classList.add('show');
+        });
+
+        // Fecha modal checkout
+        document.getElementById('btnCloseCheckout').addEventListener('click', () => {
+            document.getElementById('checkoutModal').classList.remove('show');
+        });
+
+        // Habilitar campo troco apenas se pagamento for dinheiro
+        document.getElementById('paymentMethod').addEventListener('change', (e) => {
+            const moneyChange = document.getElementById('moneyChange');
+            moneyChange.disabled = e.target.value !== 'money';
+            if (moneyChange.disabled) moneyChange.value = '';
+        });
+
+        // Submete pedido
+        document.getElementById('checkoutForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (cart.length === 0) {
+                alert('Carrinho vazio!');
+                return;
+            }
+            const name = document.getElementById('customerName').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+            const address = document.getElementById('customerAddress').value.trim();
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            const moneyChange = document.getElementById('moneyChange').value;
+
+            if (!name || !phone || !address) {
+                alert('Preencha todos os dados obrigatórios!');
                 return;
             }
 
-            orders.forEach(order => {
-                        const div = document.createElement('div');
-                        div.className = 'order';
+            if (paymentMethod === 'money' && moneyChange && parseFloat(moneyChange) < calculateTotal()) {
+                alert('Valor para troco deve ser maior que o total!');
+                return;
+            }
 
-                        const statusClass = {
-                            'pending': 'status-pending',
-                            'inprogress': 'status-inprogress',
-                            'completed': 'status-completed'
-                        }[order.status] || '';
+            // Montar objeto pedido
+            const order = {
+                id: Date.now(),
+                customer: {
+                    name,
+                    phone,
+                    address
+                },
+                items: cart,
+                total: calculateTotal(),
+                paymentMethod,
+                moneyChange: paymentMethod === 'money' ? moneyChange || null : null,
+                status: 'pending',
+                timestamp: new Date().toISOString(),
+            };
 
-                        div.innerHTML = `
-        <h3>Pedido #${order.id}</h3>
-        <p><strong>Cliente:</strong> ${order.customer.name} | ${order.customer.phone}</p>
-        <p><strong>Endereço:</strong> ${order.customer.address}</p>
-        <p><strong>Itens:</strong> ${order.items.map(i => `${i.name} x${i.quantity}`).join(', ')}</p>
-        <p><strong>Total:</strong> R$ ${order.total.toFixed(2)}</p>
-        <p><strong>Status:</strong> <span class="${statusClass}">${order.status}</span></p>
-        <button onclick="nextStatus(${order.id})">Próximo status</button>
-      `;
-      ordersContainer.appendChild(div);
-    });
-  }
+            // Salvar pedido no LocalStorage (simulando envio para restaurante)
+            let orders = JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
+            orders.push(order);
+            localStorage.setItem('restaurantOrders', JSON.stringify(orders));
 
-  // Atualiza status do pedido (pending → inprogress → completed)
-  function nextStatus(orderId) {
-    let orders = loadOrders();
-    const index = orders.findIndex(o => o.id === orderId);
-    if(index === -1) return;
+            alert('Pedido enviado com sucesso! Número: #' + order.id);
 
-    const status = orders[index].status;
+            // Limpar formulário e carrinho
+            cart = [];
+            updateCart();
+            document.getElementById('checkoutForm').reset();
+            document.getElementById('checkoutModal').classList.remove('show');
+        });
 
-    if(status === 'pending') orders[index].status = 'inprogress';
-    else if(status === 'inprogress') orders[index].status = 'completed';
-    else if(status === 'completed') {
-      alert('Pedido já está concluído.');
-      return;
-    }
-
-    saveOrders(orders);
-    renderOrders(document.getElementById('filterStatus').value);
-  }
-
-  // Event listener filtro
-  document.getElementById('filterStatus').addEventListener('change', (e) => {
-    renderOrders(e.target.value);
-  });
-
-  // Inicializa a lista na tela
-  renderOrders();
+        // Inicialização
+        renderMenu();
+        updateCart();
     </script>
 
 </body>
