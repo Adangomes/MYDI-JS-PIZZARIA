@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Restaurante - MyDi</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #fff8f0;
+        }
+        
+        h1 {
+            color: #f97316;
+        }
+        
+        .order {
+            border: 1px solid #f97316;
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 15px;
+            background: white;
+        }
+        
+        button {
+            cursor: pointer;
+            padding: 6px 10px;
+            background: #f97316;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        
+        .status-pending {
+            color: orange;
+            font-weight: bold;
+        }
+        
+        .status-inprogress {
+            color: blue;
+            font-weight: bold;
+        }
+        
+        .status-completed {
+            color: green;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>MyDi - Painel do Restaurante</h1>
+
+    <div>
+        <label>Filtrar pedidos: </label>
+        <select id="filterStatus">
+    <option value="all">Todos</option>
+    <option value="pending">Pendentes</option>
+    <option value="inprogress">Em preparo</option>
+    <option value="completed">Concluídos</option>
+  </select>
+    </div>
+
+    <div id="ordersContainer" style="margin-top: 20px;"></div>
+
+    <script>
+        // Carrega pedidos do LocalStorage
+        function loadOrders() {
+            return JSON.parse(localStorage.getItem('restaurantOrders') || '[]');
+        }
+
+        // Salva pedidos no LocalStorage
+        function saveOrders(orders) {
+            localStorage.setItem('restaurantOrders', JSON.stringify(orders));
+        }
+
+        // Renderiza pedidos com filtro
+        function renderOrders(filter = 'all') {
+            const ordersContainer = document.getElementById('ordersContainer');
+            ordersContainer.innerHTML = '';
+
+            let orders = loadOrders();
+
+            if (filter !== 'all') {
+                orders = orders.filter(o => o.status === filter);
+            }
+
+            if (orders.length === 0) {
+                ordersContainer.innerHTML = '<p>Nenhum pedido encontrado.</p>';
+                return;
+            }
+
+            orders.forEach(order => {
+                        const div = document.createElement('div');
+                        div.className = 'order';
+
+                        const statusClass = {
+                            'pending': 'status-pending',
+                            'inprogress': 'status-inprogress',
+                            'completed': 'status-completed'
+                        }[order.status] || '';
+
+                        div.innerHTML = `
+        <h3>Pedido #${order.id}</h3>
+        <p><strong>Cliente:</strong> ${order.customer.name} | ${order.customer.phone}</p>
+        <p><strong>Endereço:</strong> ${order.customer.address}</p>
+        <p><strong>Itens:</strong> ${order.items.map(i => `${i.name} x${i.quantity}`).join(', ')}</p>
+        <p><strong>Total:</strong> R$ ${order.total.toFixed(2)}</p>
+        <p><strong>Status:</strong> <span class="${statusClass}">${order.status}</span></p>
+        <button onclick="nextStatus(${order.id})">Próximo status</button>
+      `;
+      ordersContainer.appendChild(div);
+    });
+  }
+
+  // Atualiza status do pedido (pending → inprogress → completed)
+  function nextStatus(orderId) {
+    let orders = loadOrders();
+    const index = orders.findIndex(o => o.id === orderId);
+    if(index === -1) return;
+
+    const status = orders[index].status;
+
+    if(status === 'pending') orders[index].status = 'inprogress';
+    else if(status === 'inprogress') orders[index].status = 'completed';
+    else if(status === 'completed') {
+      alert('Pedido já está concluído.');
+      return;
+    }
+
+    saveOrders(orders);
+    renderOrders(document.getElementById('filterStatus').value);
+  }
+
+  // Event listener filtro
+  document.getElementById('filterStatus').addEventListener('change', (e) => {
+    renderOrders(e.target.value);
+  });
+
+  // Inicializa a lista na tela
+  renderOrders();
+    </script>
+
+</body>
+
+</html>
